@@ -3,7 +3,7 @@ const app = express()
 require('dotenv').config()
 const cors = require('cors')
 const cookieParser = require('cookie-parser')
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb')
+const { MongoClient, ServerApiVersion, ObjectId, Timestamp } = require('mongodb')
 const jwt = require('jsonwebtoken')
 
 const port = process.env.PORT || 8000
@@ -51,6 +51,7 @@ async function run() {
    const medicineCollection = client.db('MedicineDb').collection('medicine')
    const allMedicineCollection = client.db('MedicineDb').collection('allmedicines')
    const CartsCollection = client.db('MedicineDb').collection('carts')
+   const UsersCollection = client.db('MedicineDb').collection('users')
     // auth related api
     app.post('/jwt', async (req, res) => {
       const user = req.body
@@ -80,6 +81,62 @@ async function run() {
         res.status(500).send(err)
       }
     })
+
+    //-----User , Seller , Admin Era Start With Here------
+    //----Save User Data In db-----
+    app.put('/user',async (req, res)=>{
+      const user = req.body
+      const query = {email : user?.email}
+      //------Check if user already exits-
+      const isExist = await UsersCollection.findOne(query)
+      if(isExist){
+       if(user.status === 'Requested'){
+        const result = await UsersCollection.updateOne(query, {
+          $set: {status: user?.status},
+        })
+        return res.send(result)
+       } else{
+        return res.send(isExist)
+       }
+      }
+      //---save a user for the first time
+      const options = {upsert: true}
+      const updateDoc = {
+        $set: {
+          ...user,
+          timestamp: Date.now(),
+        },
+      }
+      const result = await UsersCollection.updateOne(query , updateDoc , options)
+      res.send(result)
+    })
+
+    //---Get User Info by Email From db------
+    app.get('/user/:email' , async(req,res)=>{
+      const email = req.params.email
+      const result = await UsersCollection.findOne({email})
+      res.send(result)
+    })
+
+    //------For Admin see All Users ----
+    app.get('/users', async (req,res)=>{
+      const result = await UsersCollection.find().toArray()
+      res.send(result)
+    })
+
+    //--------Update status and role-------
+    app.patch('/user/update/:email', async(req,res)=>{
+      const email = req.params.email
+      const user = req.body
+      const query ={email}
+      const updateDoc ={
+        $set: {
+          ...user,timestamp: Date.now()
+        },
+      }
+      const result = await UsersCollection.updateOne(query, updateDoc)
+      res.send(result)
+  })
 
     //----------Start With Here-------------
 

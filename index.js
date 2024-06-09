@@ -52,15 +52,7 @@ async function run() {
     const CartsCollection = client.db('MedicineDb').collection('carts');
     const UsersCollection = client.db('MedicineDb').collection('users');
     const PaymentsCollection = client.db('MedicineDb').collection('payments');
-    // Payment Get Only for Seller
-    app.get('/payment-seller/:email', async (req, res) => {
-      const email = req.params.email;
-      const result = PaymentsCollection.find();
-      res.send(result);
-    });
-    
     const AdvertiesmentCollection = client.db('MedicineDb').collection('ad');
-
     // Verify Admin Middleware
     const verifyAdmin = async (req, res, next) => {
       const user = req.user;
@@ -202,6 +194,43 @@ app.patch('/admin-pay/:id', verifyToken, async (req, res) => {
       const result = await medicineCollection.insertOne(medicineData);
       res.send(result);
     });
+
+
+    // Get All Category--------
+
+    app.get('/admin-category', verifyToken,  verifyAdmin,async (req, res) => {
+      const result = await medicineCollection.find().toArray();
+      res.send(result);
+    });
+    //---------Admin Can Delete Every thing------
+    app.delete('/delete-category/:id',verifyToken ,verifyAdmin,async (req,res)=>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      const result =await medicineCollection.deleteOne(query);
+      res.send(result)
+    })
+
+    //--------Update Category---------
+   
+    app.get('/update-category/:id',verifyToken ,verifyAdmin,async (req,res)=>{
+      const id = req.params.id;
+      const query = {_id: new ObjectId(id)}
+      const result =await medicineCollection.findOne(query);
+      res.send(result)
+    })
+    app.put('/update-category/:id', verifyToken, verifyAdmin, async (req, res) => {
+      try {
+          const id = req.params.id;
+          const query = { _id: new ObjectId(id) };
+          const updatedData = req.body; // Data to update the category
+          const result = await medicineCollection.updateOne(query, { $set: updatedData });
+          res.send(result);
+      } catch (error) {
+          console.error("Update error:", error);
+          res.status(500).send("Failed to update category");
+      }
+  });
+
     //Admin Dashboard------
     app.get('/admin-dashboard', verifyToken, verifyAdmin, async (req, res) => {
       try {
@@ -239,18 +268,7 @@ app.get('/advertise-medicines', async (req, res) => {
 });
 
 // Endpoint to toggle add to slide/remove from slide for a specific advertisement
-app.put('/toggle-advertisement-slide/:id', async (req, res) => {
-  const id = req.params.id;
-  try {
-    const advertisement = await AdvertiesmentCollection.findOne({ _id: ObjectId(id) });
-    const updatedStatus = !advertisement.addToSlide;
-    await AdvertiesmentCollection.updateOne({ _id: ObjectId(id) }, { $set: { addToSlide: updatedStatus } });
-    res.json({ message: 'Status updated successfully' });
-  } catch (error) {
-    console.error('Error updating advertisement status:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
+
 
 
 
@@ -300,6 +318,33 @@ app.put('/toggle-advertisement-slide/:id', async (req, res) => {
       if (search) {
         query.title = { $regex: search, $options: 'i' }; // Case-insensitive search
       }
+
+      //dynamically count----------
+      app.get('/medicine-counts', async (req, res) => {
+        try {
+            const result = await allMedicineCollection.aggregate([
+                {
+                    $group: {
+                        _id: "$category",
+                        count: { $sum: 1 }
+                    }
+                },
+                {
+                    $project: {
+                        category: "$_id",
+                        count: 1,
+                        _id: 0
+                    }
+                }
+            ]).toArray();
+            console.log('Aggregated Counts:', result); // Add logging
+            res.send(result);
+        } catch (error) {
+            console.error('Error fetching medicine counts:', error);
+            res.status(500).send({ error: 'Internal Server Error' });
+        }
+    });
+    
     
       // Create the options object
       const options = {
@@ -368,6 +413,7 @@ app.put('/toggle-advertisement-slide/:id', async (req, res) => {
       res.send(result);
     });
 
+    
     // Delete Medicine (Seller only)
     app.delete('/medicine-delete/:id', verifyToken, verifySeller, async (req, res) => {
       const id = req.params.id;
@@ -380,6 +426,14 @@ app.put('/toggle-advertisement-slide/:id', async (req, res) => {
         res.status(500).json({ error: 'Error deleting medicine' });
       }
     });
+
+    // Payment Get Only for Seller
+    app.get('/payment-seller/:email', async (req, res) => {
+      const email = req.params.email;
+      const result = PaymentsCollection.find();
+      res.send(result);
+    });
+    
 
     // Create Payment Intent
     app.post('/create-payment-intent', async (req, res) => {
@@ -450,15 +504,31 @@ app.post('/Adver-medicines', verifyToken, async (req, res) => {
   }
 });
 
-// Fetch seller's medicines for advertisement
-app.get('/medicine-adver', verifyToken, async (req, res) => {
-  const seller = req.user; // Extract seller information from authenticated user
+app.get('/advertise-medicines', async (req, res) => {
   try {
-      const result = await AdvertiesmentCollection.find({ 'seller.email': seller.email, advertise: true }).toArray();
-      res.send(result);
+      const advertisedMedicines = await AdvertiesmentCollection.find().toArray();
+      res.send(advertisedMedicines);
   } catch (error) {
-      console.error('Error fetching seller medicines for advertisement:', error);
-      res.status(500).json({ error: 'Internal Server Error' });
+      console.error('Error fetching advertised medicines:', error);
+      res.status(500).send('Internal Server Error');
+  }
+});
+//-----------------------
+app.put('/toggle-advertisement-slide/:id', async (req, res) => {
+  try {
+      const { addToSlide } = req.body;
+      const result = await AdvertiesmentCollection.updateOne(
+          { _id: new ObjectId(req.params.id) },
+          { $set: { status: addToSlide } }
+      );
+      if (result.modifiedCount > 0) {
+          res.send('Advertisement status updated successfully');
+      } else {
+          res.status(404).send('Advertisement not found');
+      }
+  } catch (error) {
+      console.error('Error updating advertisement status:', error);
+      res.status(500).send('Server error');
   }
 });
 //---------------payment Era---------------------
@@ -470,7 +540,6 @@ app.get('/medicine-adver', verifyToken, async (req, res) => {
     });
 
     // Post Payment and Delete Items from Cart
-   // Post Payment and Delete Items from Cart
 app.post('/payments', async (req, res) => {
   const session = client.startSession();
   try {

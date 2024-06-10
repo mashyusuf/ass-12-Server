@@ -155,7 +155,7 @@ async function run() {
     })
 
     // Update User Status and Role
-    app.patch('/user/update/:email', async (req, res) => {
+    app.patch('/user/update/:email', verifyToken,verifyAdmin,async (req, res) => {
       const email = req.params.email;
       const user = req.body;
       const query = { email };
@@ -166,13 +166,13 @@ async function run() {
       res.send(result);
     });
     //Payment Get-----------Manage Payment--------
-    app.get('/admin-pay', verifyToken,  async (req, res) => {
+    app.get('/admin-pay', verifyToken, verifyAdmin, async (req, res) => {
       const result = await PaymentsCollection.find().toArray();
       res.send(result);
     });
       
     // Payment Status Update
-app.patch('/admin-pay/:id', verifyToken, async (req, res) => {
+app.patch('/admin-pay/:id', verifyToken, verifyAdmin,async (req, res) => {
   const { id } = req.params;
   const filter = { _id: new ObjectId(id) };
   const updateDoc = {
@@ -257,7 +257,7 @@ app.patch('/admin-pay/:id', verifyToken, async (req, res) => {
 
 
    // Endpoint to fetch all advertisement medicines
-app.get('/advertise-medicines', async (req, res) => {
+app.get('/advertise-medicines', verifyToken,async (req, res) => {
   try {
     const result = await AdvertiesmentCollection.find({}).toArray();
     res.json(result);
@@ -273,7 +273,7 @@ app.get('/advertise-medicines', async (req, res) => {
 
 
     //---Admin Sales Get--------
-    app.get('/admin-sales', async (req, res) => {
+    app.get('/admin-sales', verifyToken,verifyAdmin,async (req, res) => {
       const result = await PaymentsCollection.find().toArray();
       res.send(result);
     });
@@ -310,59 +310,30 @@ app.get('/advertise-medicines', async (req, res) => {
 
     // Get All Shop Medicines
     app.get('/shop-medicine', async (req, res) => {
-      const { sort, search } = req.query;
-      console.log({ sort, search });
+      const { sort, search, page, size } = req.query;
+      console.log({ sort, search, page, size });
     
-      // Create the query object
       const query = {};
       if (search) {
-        query.title = { $regex: search, $options: 'i' }; // Case-insensitive search
+        query.title = { $regex: search, $options: 'i' };
       }
-
-      //dynamically count----------
-      app.get('/medicine-counts', async (req, res) => {
-        try {
-            const result = await allMedicineCollection.aggregate([
-                {
-                    $group: {
-                        _id: "$category",
-                        count: { $sum: 1 }
-                    }
-                },
-                {
-                    $project: {
-                        category: "$_id",
-                        count: 1,
-                        _id: 0
-                    }
-                }
-            ]).toArray();
-            console.log('Aggregated Counts:', result); // Add logging
-            res.send(result);
-        } catch (error) {
-            console.error('Error fetching medicine counts:', error);
-            res.status(500).send({ error: 'Internal Server Error' });
-        }
-    });
     
-    
-      // Create the options object
-      const options = {
-        sort: {
-          price: sort === 'asc' ? 1 : -1
-        }
-      };
+      const skip = (parseInt(page) - 1) * parseInt(size);
+      const sortOrder = sort === 'asc' ? 1 : -1;
     
       try {
-        // Execute the query with sorting and filtering
-        const result = await allMedicineCollection.find(query, options).toArray();
-        res.send(result);
+        const medicines = await allMedicineCollection.find(query)
+          .sort({ price: sortOrder })
+          .skip(skip)
+          .limit(parseInt(size))
+          .toArray();
+        
+        res.send(medicines);
       } catch (error) {
         console.error('Error fetching medicines:', error);
-        res.status(500).send('Error fetching medicines');
+        res.status(500).send({ error: 'Internal Server Error' });
       }
     });
-    
 
 //----------get for discount----------
     app.get('/discounted-products', async (req, res) => {
@@ -397,6 +368,16 @@ app.get('/advertise-medicines', async (req, res) => {
       const result = await CartsCollection.deleteOne(query);
       res.send(result);
     });
+    
+
+    //-------------Pagination Time -----------
+    app.get('/totalMedicineCount',async (req,res)=>{
+      const count = await allMedicineCollection.estimatedDocumentCount();
+      res.send({count})
+    })
+
+
+
     //--------------Seller Era--------------------
     // Add Medicines (Seller only)
     app.post('/add-medicines', verifyToken, verifySeller, async (req, res) => {
@@ -428,7 +409,7 @@ app.get('/advertise-medicines', async (req, res) => {
     });
 
     // Payment Get Only for Seller
-    app.get('/payment-seller/:email', async (req, res) => {
+    app.get('/payment-seller/:email', verifyToken,verifySeller,async (req, res) => {
       const email = req.params.email;
       const result = PaymentsCollection.find();
       res.send(result);
@@ -436,7 +417,7 @@ app.get('/advertise-medicines', async (req, res) => {
     
 
     // Create Payment Intent
-    app.post('/create-payment-intent', async (req, res) => {
+    app.post('/create-payment-intent',verifyToken, async (req, res) => {
       try {
         const { price } = req.body;
         if (typeof price !== 'number' || isNaN(price) || price <= 0) {
@@ -504,7 +485,7 @@ app.post('/Adver-medicines', verifyToken, async (req, res) => {
   }
 });
 
-app.get('/advertise-medicines', async (req, res) => {
+app.get('/advertise-medicines', verifyToken,async (req, res) => {
   try {
       const advertisedMedicines = await AdvertiesmentCollection.find().toArray();
       res.send(advertisedMedicines);
@@ -514,7 +495,7 @@ app.get('/advertise-medicines', async (req, res) => {
   }
 });
 //-----------------------
-app.put('/toggle-advertisement-slide/:id', async (req, res) => {
+app.put('/toggle-advertisement-slide/:id', verifyToken,verifySeller,async (req, res) => {
   try {
       const { addToSlide } = req.body;
       const result = await AdvertiesmentCollection.updateOne(

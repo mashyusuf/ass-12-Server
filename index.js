@@ -11,9 +11,13 @@ const port = process.env.PORT || 8000;
 
 // Middleware
 const corsOptions = {
-  origin: ['http://localhost:5173', 'http://localhost:5174'],
+  origin: [
+    'http://localhost:5173', 'http://localhost:5174',
+    //'https://assingment12-fc8d1.web.app', 
+    //'https://assingment12-fc8d1.firebaseapp.com'
+  ],
   credentials: true,
-  optionSuccessStatus: 200,
+  optionsSuccessStatus: 200, // Corrected from optionSuccessStatus to optionsSuccessStatus
 };
 app.use(cors(corsOptions));
 app.use(express.json());
@@ -46,7 +50,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+    //await client.connect();
     const medicineCollection = client.db('MedicineDb').collection('medicine');
     const allMedicineCollection = client.db('MedicineDb').collection('allmedicines');
     const CartsCollection = client.db('MedicineDb').collection('carts');
@@ -257,7 +261,7 @@ app.patch('/admin-pay/:id', verifyToken, verifyAdmin,async (req, res) => {
 
 
    // Endpoint to fetch all advertisement medicines
-app.get('/advertise-medicines', verifyToken,async (req, res) => {
+app.get('/advertise-medicines',async (req, res) => {
   try {
     const result = await AdvertiesmentCollection.find({}).toArray();
     res.json(result);
@@ -551,8 +555,8 @@ app.post('/payments', async (req, res) => {
 
 
     // Send a ping to confirm a successful connection
-    await client.db('admin').command({ ping: 1 });
-    console.log('Pinged your deployment. You successfully connected to MongoDB!');
+    //await client.db('admin').command({ ping: 1 });
+    //console.log('Pinged your deployment. You successfully connected to MongoDB!');
   } finally {
     // Ensures that the client will close when you finish/error
   }

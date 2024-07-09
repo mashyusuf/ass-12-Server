@@ -13,8 +13,8 @@ const port = process.env.PORT || 8000;
 const corsOptions = {
   origin: [
     'http://localhost:5173', 'http://localhost:5174',
-    //'https://assingment12-fc8d1.web.app', 
-    //'https://assingment12-fc8d1.firebaseapp.com'
+    'https://assingment12-fc8d1.web.app', 
+    'https://assingment12-fc8d1.firebaseapp.com'
   ],
   credentials: true,
   optionsSuccessStatus: 200, // Corrected from optionSuccessStatus to optionsSuccessStatus
